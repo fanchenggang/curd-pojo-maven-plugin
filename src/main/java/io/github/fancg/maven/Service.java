@@ -104,6 +104,10 @@ public class Service {
         //扫描path下的所有java对象
         File filePath = new File(basedirPath + "/" + source.getPath());
         File[] files = filePath.listFiles();
+        if (files == null) {
+            getLog().warn("path:" + filePath.getAbsolutePath() + " 不存在");
+            return;
+        }
         for (File file : files) {
             if (file.isDirectory()) {
                 continue;

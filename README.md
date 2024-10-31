@@ -10,14 +10,14 @@
  <build>
         <plugins>
             <plugin>
-                <groupId>com.fancg</groupId>
+                <groupId>io.github.fanchenggang</groupId>
                 <artifactId>curd-pojo-maven-plugin</artifactId>
-                <version></version>
+                <version>20241031.A</version>
                 <configuration>
                      <dataSource>
-                         <url>jdbc:mysql://127.0.0.1:3306/ruoyi?useUnicode=true&amp;characterEncoding=utf8&amp;zeroDateTimeBehavior=convertToNull&amp;useSSL=true&amp;serverTimezone=GMT%2B8</url>
-                         <username>root</username>
-                         <password>123456</password>
+                         <url>jdbc:mysql://127.0.0.1:3306/****?useUnicode=true&amp;characterEncoding=utf8&amp;zeroDateTimeBehavior=convertToNull&amp;useSSL=true&amp;serverTimezone=GMT%2B8</url>
+                         <username>****</username>
+                         <password>******</password>
                      </dataSource>
                     <schemas>
                         <schema>
