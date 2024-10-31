@@ -1,4 +1,4 @@
-package com.fancg.maven.plugin;
+package io.github.fancg.maven;
 
 import lombok.Getter;
 import lombok.Setter;

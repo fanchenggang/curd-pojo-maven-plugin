@@ -1,4 +1,4 @@
-package com.fancg.maven.plugin.entity;
+package io.github.fancg.maven.entity;
 
 import lombok.Getter;
 import lombok.Setter;

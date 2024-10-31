@@ -1,6 +1,6 @@
-package com.fancg.maven.plugin;
+package io.github.fancg.maven;
 
-import com.fancg.maven.plugin.entity.DataSource;
+import io.github.fancg.maven.entity.DataSource;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanListHandler;

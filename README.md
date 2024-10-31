@@ -12,7 +12,7 @@
             <plugin>
                 <groupId>com.fancg</groupId>
                 <artifactId>curd-pojo-maven-plugin</artifactId>
-                <version>1.2-SNAPSHOT</version>
+                <version></version>
                 <configuration>
                      <dataSource>
                          <url>jdbc:mysql://127.0.0.1:3306/ruoyi?useUnicode=true&amp;characterEncoding=utf8&amp;zeroDateTimeBehavior=convertToNull&amp;useSSL=true&amp;serverTimezone=GMT%2B8</url>
@@ -34,6 +34,7 @@
                                 </source>
                                 <source>
                                     <path>src/main/java/com/ruoyi/perf/reassign/domain/vo</path>
+                                    <subSuffix>VO</subSuffix>
                                     <annotations>
                                         <annotation>
                                             <className>io.swagger.annotations.ApiModelProperty</className>
@@ -49,7 +50,7 @@
                         <id>first</id>
                         <phase>none</phase>
                         <goals>
-                            <goal>curd-pojo-maven-plugin</goal>
+                            <goal>sync</goal>
                         </goals>
                     </execution>
                 </executions>

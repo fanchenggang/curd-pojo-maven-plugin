@@ -1,4 +1,4 @@
-package com.fancg.maven.plugin.util;
+package io.github.fancg.maven.util;
 
 /**
  * @author: cg
@@ -53,6 +53,9 @@ public class StringUtils {
         return sb.toString();
     }
 
+    public static boolean isEmpty(CharSequence cs) {
+        return cs == null || cs.length() == 0;
+    }
 
     public static boolean isBlank(CharSequence cs) {
         if (cs != null) {

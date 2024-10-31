@@ -1,9 +1,9 @@
-package com.fancg.maven.plugin;
+package io.github.fancg.maven;
 
-import com.fancg.maven.plugin.entity.Annotation;
-import com.fancg.maven.plugin.entity.Schema;
-import com.fancg.maven.plugin.entity.Source;
-import com.fancg.maven.plugin.util.StringUtils;
+import io.github.fancg.maven.entity.Annotation;
+import io.github.fancg.maven.entity.Schema;
+import io.github.fancg.maven.entity.Source;
+import io.github.fancg.maven.util.StringUtils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
@@ -34,6 +34,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,7 @@ public class Service {
         javaTypeMap.put("varchar", "String");
         javaTypeMap.put("json", "JSONArray");
         javaTypeMap.put("decimal", "BigDecimal");
+        javaTypeMap.put("datetime", "Date");
 
         jdbcTypeMap.put("int", "INTEGER");
         jdbcTypeMap.put("varchar", "VARCHAR");
@@ -106,11 +108,12 @@ public class Service {
             if (file.isDirectory()) {
                 continue;
             }
-            sync(source,file, annotations);
+            sync(source, file, annotations);
         }
     }
 
-    private void sync(Source source,File file, List<Annotation> annotations) throws Exception {
+    private void sync(Source source, File file, List<Annotation> annotations) throws Exception {
+        getLog().debug("Java source path:" + file.getAbsolutePath());
         ParseResult<CompilationUnit> parseResult = javaParser.parse(file);
         CompilationUnit compilationUnit = parseResult.getResult().get();
 
@@ -122,9 +125,18 @@ public class Service {
 
             fieldNameList.add(fieldName);
         }
-
+        //获取类名
         String name = compilationUnit.getType(0).getName().asString();
-        List<ColumnInfo> columnInfoList = schemaColumnsMap.get(StringUtils.camelToUnderline(name));
+        //如果配置了后缀 VO DTO ... 要截取掉在匹配
+        if (!StringUtils.isEmpty(source.getSubSuffix())) {
+            name = name.substring(0, name.length() - source.getSubSuffix().length());
+        }
+        String tableName = StringUtils.camelToUnderline(name);
+        List<ColumnInfo> columnInfoList = schemaColumnsMap.get(tableName);
+        getLog().debug("tableName: " + tableName + ", columnSize: " + (columnInfoList == null ? 0 : columnInfoList.size()));
+        if (columnInfoList == null) {
+            return;
+        }
         for (ColumnInfo columnInfo : columnInfoList) {
             if (!fieldNameList.contains(StringUtils.underlineToCamel(columnInfo.getColumnName()))) {
                 columnInfo.setJavaName(StringUtils.underlineToCamel(columnInfo.getColumnName()));
@@ -133,24 +145,30 @@ public class Service {
             }
         }
 
-        if (columnInfoList.isEmpty()) {
-            getLog().info("没有缺失字段");
+        if (addColumnInfoList.isEmpty()) {
+            getLog().debug(tableName + ":没有缺失字段");
             return;
-        } else {
-            getLog().info("缺少以下字段");
-            for (ColumnInfo columnInfo : addColumnInfoList) {
-                getLog().info(columnInfo.getColumnName() + ":" + columnInfo.getDataType() + ":" + columnInfo.getColumnComment());
-            }
         }
+        for (ColumnInfo columnInfo : addColumnInfoList) {
+            getLog().info("缺少字段:" + columnInfo.getTableName() + ":" + columnInfo.getColumnName() + ":" + columnInfo.getDataType() + ":" + columnInfo.getColumnComment());
+        }
+
         modifyEntity(compilationUnit, addColumnInfoList, annotations);
-        modifyXml(source.getXmlPath()+"/"+name+"Mapper.xml", addColumnInfoList);
+        if (source.getXmlPath() != null && "".equals(source.getXmlPath())) {
+            modifyXml(source.getXmlPath() + "/" + name + "Mapper.xml", addColumnInfoList);
+        }
     }
 
     public void modifyEntity(CompilationUnit compilationUnit, List<ColumnInfo> columnInfoList, List<Annotation> annotations) throws FileNotFoundException {
         for (ColumnInfo columnInfo : columnInfoList) {
             FieldDeclaration fieldDeclaration = new FieldDeclaration();
             NodeList<VariableDeclarator> variableDeclarators = new NodeList<>();
-            VariableDeclarator variableDeclarator = new VariableDeclarator(new ClassOrInterfaceType(javaTypeMap.get(columnInfo.getDataType())), StringUtils.underlineToCamel(columnInfo.getColumnName()));
+            String type = javaTypeMap.get(columnInfo.getDataType());
+            if (type == null) {
+                getLog().warn("不支持的数据类型:" + columnInfo.getDataType());
+                type = "Object";
+            }
+            VariableDeclarator variableDeclarator = new VariableDeclarator(new ClassOrInterfaceType(type), StringUtils.underlineToCamel(columnInfo.getColumnName()));
             variableDeclarators.add(variableDeclarator);
             fieldDeclaration.setVariables(variableDeclarators);
 
@@ -190,7 +208,9 @@ public class Service {
             compilationUnit.getTypes().getLast().get().addMember(fieldDeclaration);
         }
         String modifiedCode = prettyPrinter.print(compilationUnit);
-        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(compilationUnit.getStorage().get().getPath().toFile(), false), StandardCharsets.UTF_8));
+        Path path = compilationUnit.getStorage().get().getPath();
+        getLog().info("修改文件:" + path.getFileName());
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(path.toFile(), false), StandardCharsets.UTF_8));
         try {
             bufferedWriter.write(modifiedCode);
         } catch (IOException e) {
@@ -205,7 +225,7 @@ public class Service {
     }
 
 
-    public static void modifyXml(String inputXmlPath, List<ColumnInfo> columnInfoList) throws Exception {
+    public void modifyXml(String inputXmlPath, List<ColumnInfo> columnInfoList) throws Exception {
         // 加载XML文件
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -245,6 +265,7 @@ public class Service {
         transformer.transform(source, result);
         // 关闭流
         fileInputStream.close();
+        getLog().info("修改文件:" + inputXmlPath);
     }
 
 

@@ -1,7 +1,7 @@
-package com.fancg.maven.plugin;
+package io.github.fancg.maven;
 
-import com.fancg.maven.plugin.entity.DataSource;
-import com.fancg.maven.plugin.entity.Schema;
+import io.github.fancg.maven.entity.DataSource;
+import io.github.fancg.maven.entity.Schema;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -13,7 +13,7 @@ import java.util.Map;
 /**
  * Hello world!
  */
-@Mojo(name = "curd-pojo-maven-plugin")
+@Mojo(name = "sync")
 public class MainMojo extends AbstractMojo {
 
 
@@ -36,6 +36,7 @@ public class MainMojo extends AbstractMojo {
         Service service = new Service();
         for (Schema sa : schemas) {
             Map<String, java.util.List<ColumnInfo>> schemaColumns = readTable.getColumnInfoMap(dataSource, sa.getName());
+            getLog().debug("获取表数量:" + schemaColumns.size());
             try {
                 service.setBasedirPath(basedir.getAbsolutePath());
                 service.setSchemaColumnsMap(schemaColumns);
