@@ -4,10 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
-  <groupId>io.github.fancg</groupId>
 
+  <groupId>io.github.fanchenggang</groupId>
   <artifactId>curd-pojo-maven-plugin</artifactId>
   <version>20241031.A</version>
+
+  <name>curd-pojo-maven-plugin</name>
+  <description>一款在Java应用开发过程中 当数据库字段新增后 同步更新POJO的maven插件</description>
+  <url>https://github.com/fanchenggang/curd-pojo-maven-plugin</url>
+
   <packaging>maven-plugin</packaging>
   <properties>
     <maven.compiler.source>8</maven.compiler.source>
@@ -55,4 +60,67 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <!-- gpg插件 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <!-- 改成你自己的路径 -->
+          <executable>C:\Program Files (x86)\GnuPG\bin\gpg.exe</executable>
+        </configuration>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- 发布插件 -->
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.5.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <!--<tokenAuth>true</tokenAuth>-->
+          <!-- 若要自动发布，添加以下配置 -->
+          <!--<autoPublish>true</autoPublish>-->
+          <!-- 一直等到发布完成 -->
+          <!--<waitUntil>published</waitUntil>-->
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!-- 版本控制 -->
+  <scm>
+    <url>https://github.com/fanchenggang/curd-pojo-maven-plugin/tree/main</url>
+    <connection>scm:git:https://github.com/fanchenggang/curd-pojo-maven-plugin.git</connection>
+    <developerConnection>scm:git:https://github.com/fanchenggang/curd-pojo-maven-plugin.git</developerConnection>
+  </scm>
+
+  <!-- 开发者信息 -->
+  <developers>
+    <developer>
+      <name>fancg</name>
+      <email>fancg@outlook.com</email>
+    </developer>
+  </developers>
+
+  <!-- 开源协议 -->
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
 </project>
