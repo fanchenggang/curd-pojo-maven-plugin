@@ -16,4 +16,5 @@ import java.util.List;
 public class Schema {
     private String name;
     private List<Source> sources;
+    private TableInfo tableInfo;
 }

@@ -2,6 +2,7 @@ package io.github.fancg.maven;
 
 import io.github.fancg.maven.entity.DataSource;
 import io.github.fancg.maven.entity.Schema;
+import io.github.fancg.maven.util.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -35,7 +36,9 @@ public class MainMojo extends AbstractMojo {
         ReadTable readTable = new ReadTable();
         Service service = new Service();
         for (Schema sa : schemas) {
-            Map<String, java.util.List<ColumnInfo>> schemaColumns = readTable.getColumnInfoMap(dataSource, sa.getName());
+            String tableName = sa.getTableInfo().getTableNames();
+            List<String> tableNames = StringUtils.splitToList(tableName);
+            Map<String, java.util.List<ColumnInfo>> schemaColumns = readTable.getColumnInfoMap(dataSource, sa.getName(), tableNames);
             getLog().debug("获取表数量:" + schemaColumns.size());
             try {
                 service.setBasedirPath(basedir.getAbsolutePath());

@@ -1,22 +1,24 @@
 package io.github.fancg.maven;
 
-import io.github.fancg.maven.entity.Annotation;
-import io.github.fancg.maven.entity.Schema;
-import io.github.fancg.maven.entity.Source;
-import io.github.fancg.maven.util.StringUtils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.printer.PrettyPrinter;
 import com.github.javaparser.printer.configuration.PrettyPrinterConfiguration;
 import com.google.common.collect.Lists;
+import io.github.fancg.maven.entity.Annotation;
+import io.github.fancg.maven.entity.Schema;
+import io.github.fancg.maven.entity.Source;
+import io.github.fancg.maven.util.StringUtils;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.w3c.dom.Document;
@@ -38,6 +40,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * @author: cg
@@ -82,11 +85,13 @@ public class Service {
         javaTypeMap.put("json", "JSONArray");
         javaTypeMap.put("decimal", "BigDecimal");
         javaTypeMap.put("datetime", "Date");
+        javaTypeMap.put("tinyint", "Integer");
 
         jdbcTypeMap.put("int", "INTEGER");
         jdbcTypeMap.put("varchar", "VARCHAR");
         jdbcTypeMap.put("json", "VARCHAR");
         jdbcTypeMap.put("decimal", "DECIMAL");
+        javaTypeMap.put("tinyint", "INTEGER");
     }
 
 
@@ -94,13 +99,16 @@ public class Service {
         for (Schema schema : schemas) {
             for (Source source : schema.getSources()) {
                 List<Annotation> annotations = source.getAnnotations();
-                sync(source, annotations);
+                sync(StringUtils.splitToList(schema.getTableInfo().getAuthors()),
+                        StringUtils.splitToList(schema.getTableInfo().getIgnoreColumns())
+                        , source, annotations);
             }
         }
     }
 
 
-    public void sync(Source source, List<Annotation> annotations) throws Exception {
+    public void sync(List<String> authors, List<String> ignoreColumns, Source source, List<Annotation> annotations) throws Exception {
+        getLog().debug("ignoreColumns:" + ignoreColumns);
         //扫描path下的所有java对象
         File filePath = new File(basedirPath + "/" + source.getPath());
         File[] files = filePath.listFiles();
@@ -112,14 +120,19 @@ public class Service {
             if (file.isDirectory()) {
                 continue;
             }
-            sync(source, file, annotations);
+            sync(authors, ignoreColumns, source, file, annotations);
         }
     }
 
-    private void sync(Source source, File file, List<Annotation> annotations) throws Exception {
+
+    private void sync(List<String> authors, List<String> ignoreColumns, Source source, File file, List<Annotation> annotations) throws Exception {
         getLog().debug("Java source path:" + file.getAbsolutePath());
         ParseResult<CompilationUnit> parseResult = javaParser.parse(file);
         CompilationUnit compilationUnit = parseResult.getResult().get();
+        if (!isAuthors(authors, compilationUnit)) {
+            getLog().debug("跳过文件:" + file.getAbsolutePath());
+            return;
+        }
 
         List<FieldDeclaration> fields = compilationUnit.findAll(FieldDeclaration.class);
         List<ColumnInfo> addColumnInfoList = Lists.newArrayList();
@@ -142,6 +155,9 @@ public class Service {
             return;
         }
         for (ColumnInfo columnInfo : columnInfoList) {
+            if (!ignoreColumns.isEmpty() && ignoreColumns.contains(columnInfo.getColumnName())) {
+                continue;
+            }
             if (!fieldNameList.contains(StringUtils.underlineToCamel(columnInfo.getColumnName()))) {
                 columnInfo.setJavaName(StringUtils.underlineToCamel(columnInfo.getColumnName()));
                 columnInfo.setJdbcType(jdbcTypeMap.get(columnInfo.getDataType()));
@@ -158,9 +174,25 @@ public class Service {
         }
 
         modifyEntity(compilationUnit, addColumnInfoList, annotations);
-        if (source.getXmlPath() != null && "".equals(source.getXmlPath())) {
+        if (source.getXmlPath() != null && !"".equals(source.getXmlPath())) {
             modifyXml(source.getXmlPath() + "/" + name + "Mapper.xml", addColumnInfoList);
         }
+    }
+
+    public boolean isAuthors(List<String> authors, CompilationUnit compilationUnit) {
+        //如果没有限定 返回true
+        if (authors.isEmpty()) {
+            return true;
+        }
+        ClassOrInterfaceDeclaration typeDeclaration = (ClassOrInterfaceDeclaration) compilationUnit.getTypes().get(0);
+        Optional<Comment> comment = typeDeclaration.getComment();
+        String content = comment.get().getContent();
+        for (String author : authors) {
+            if (content.contains("@author: " + author)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void modifyEntity(CompilationUnit compilationUnit, List<ColumnInfo> columnInfoList, List<Annotation> annotations) throws FileNotFoundException {
@@ -180,34 +212,36 @@ public class Service {
             modifiers.add(new Modifier(Modifier.Keyword.PRIVATE));
             fieldDeclaration.setModifiers(modifiers);
             NodeList<AnnotationExpr> annotationExprs = new NodeList<>();
-            for (Annotation annotation : annotations) {
-                if (annotation.getClassName().endsWith("ApiModelProperty")) {
-                    NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
-                    normalAnnotationExpr.setName("ApiModelProperty");
-                    NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
-                    memberValuePairs.add(new MemberValuePair("value", new StringLiteralExpr(columnInfo.getColumnComment())));
-                    normalAnnotationExpr.setPairs(memberValuePairs);
-                    annotationExprs.add(normalAnnotationExpr);
-                } else if (annotation.getClassName().endsWith("TableField")) {
-                    NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
-                    normalAnnotationExpr.setName("TableField");
-                    NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
-                    memberValuePairs.add(new MemberValuePair("value", new StringLiteralExpr(columnInfo.getColumnName())));
-                    if (columnInfo.getDataType().equals("json")) {
-                        memberValuePairs.add(new MemberValuePair("typeHandler", new ClassExpr(new ClassOrInterfaceType("Fastjson2TypeHandler"))));
+            if (annotations != null) {
+                for (Annotation annotation : annotations) {
+                    if (annotation.getClassName().endsWith("ApiModelProperty")) {
+                        NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
+                        normalAnnotationExpr.setName("ApiModelProperty");
+                        NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
+                        memberValuePairs.add(new MemberValuePair("value", new StringLiteralExpr(columnInfo.getColumnComment())));
+                        normalAnnotationExpr.setPairs(memberValuePairs);
+                        annotationExprs.add(normalAnnotationExpr);
+                    } else if (annotation.getClassName().endsWith("TableField")) {
+                        NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
+                        normalAnnotationExpr.setName("TableField");
+                        NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
+                        memberValuePairs.add(new MemberValuePair("value", new StringLiteralExpr(columnInfo.getColumnName())));
+                        if (columnInfo.getDataType().equals("json")) {
+                            memberValuePairs.add(new MemberValuePair("typeHandler", new ClassExpr(new ClassOrInterfaceType("Fastjson2TypeHandler"))));
+                        }
+                        normalAnnotationExpr.setPairs(memberValuePairs);
+                        annotationExprs.add(normalAnnotationExpr);
+                    } else if (annotation.getClassName().endsWith("Excel")) {
+                        NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
+                        normalAnnotationExpr.setName("Excel");
+                        NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
+                        memberValuePairs.add(new MemberValuePair("name", new StringLiteralExpr(columnInfo.getColumnComment())));
+                        normalAnnotationExpr.setPairs(memberValuePairs);
+                        annotationExprs.add(normalAnnotationExpr);
                     }
-                    normalAnnotationExpr.setPairs(memberValuePairs);
-                    annotationExprs.add(normalAnnotationExpr);
-                } else if (annotation.getClassName().endsWith("Excel")) {
-                    NormalAnnotationExpr normalAnnotationExpr = new NormalAnnotationExpr();
-                    normalAnnotationExpr.setName("Excel");
-                    NodeList<MemberValuePair> memberValuePairs = new NodeList<>();
-                    memberValuePairs.add(new MemberValuePair("name", new StringLiteralExpr(columnInfo.getColumnComment())));
-                    normalAnnotationExpr.setPairs(memberValuePairs);
-                    annotationExprs.add(normalAnnotationExpr);
                 }
+                fieldDeclaration.setAnnotations(annotationExprs);
             }
-            fieldDeclaration.setAnnotations(annotationExprs);
             fieldDeclaration.setJavadocComment(columnInfo.getColumnComment());
             compilationUnit.getTypes().getLast().get().addMember(fieldDeclaration);
         }

@@ -1,7 +1,7 @@
 package io.github.fancg.maven;
 
-import io.github.fancg.maven.entity.DataSource;
 import com.mysql.cj.jdbc.MysqlDataSource;
+import io.github.fancg.maven.entity.DataSource;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanListHandler;
 
@@ -17,13 +17,16 @@ import java.util.stream.Collectors;
  **/
 
 public class ReadTable {
-    public Map<String, List<ColumnInfo>> getColumnInfoMap(DataSource source, String schema) {
+    public Map<String, List<ColumnInfo>> getColumnInfoMap(DataSource source, String schema, List<String> tableNames) {
         try {
             List<ColumnInfo> columnInfoList = getColumnInfoList(source, schema);
 //            Map<String,Map<String,ColumnInfo>> result = new HashMap<>();
 //            columnInfoList.stream().collect(Collectors.groupingBy(ColumnInfo::getTableName))
 //                    .forEach((k,v)-> result.put(k,v.stream().collect(Collectors.toMap(ColumnInfo::getColumnName, c->c))));
-            return columnInfoList.stream().collect(Collectors.groupingBy(ColumnInfo::getTableName));
+            if (tableNames == null || tableNames.isEmpty()) {
+                return columnInfoList.stream().collect(Collectors.groupingBy(ColumnInfo::getTableName));
+            }
+            return columnInfoList.stream().filter(c -> tableNames.contains(c.getTableName())).collect(Collectors.groupingBy(ColumnInfo::getTableName));
         } catch (SQLException e) {
             e.printStackTrace();
         }

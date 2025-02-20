@@ -1,5 +1,9 @@
 package io.github.fancg.maven.util;
 
+import com.google.common.collect.Lists;
+
+import java.util.List;
+
 /**
  * @author: cg
  * @date: 2024-10-30 13:25
@@ -67,5 +71,13 @@ public class StringUtils {
             }
         }
         return true;
+    }
+
+    public static List<String> splitToList(String str) {
+        if (str == null || str.isEmpty()) {
+            return Lists.newArrayList();
+        } else {
+            return Lists.newArrayList(str.split(","));
+        }
     }
 }
