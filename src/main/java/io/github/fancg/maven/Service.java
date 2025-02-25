@@ -84,10 +84,12 @@ public class Service {
         javaTypeMap.put("varchar", "String");
         javaTypeMap.put("json", "JSONArray");
         javaTypeMap.put("decimal", "BigDecimal");
+        javaTypeMap.put("bigint", "Long");
         javaTypeMap.put("datetime", "Date");
         javaTypeMap.put("tinyint", "Integer");
 
         jdbcTypeMap.put("int", "INTEGER");
+        jdbcTypeMap.put("bigint", "INTEGER");
         jdbcTypeMap.put("varchar", "VARCHAR");
         jdbcTypeMap.put("json", "VARCHAR");
         jdbcTypeMap.put("decimal", "DECIMAL");
