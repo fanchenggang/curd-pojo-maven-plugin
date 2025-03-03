@@ -93,7 +93,8 @@ public class Service {
         jdbcTypeMap.put("varchar", "VARCHAR");
         jdbcTypeMap.put("json", "VARCHAR");
         jdbcTypeMap.put("decimal", "DECIMAL");
-        javaTypeMap.put("tinyint", "INTEGER");
+        jdbcTypeMap.put("tinyint", "INTEGER");
+        jdbcTypeMap.put("datetime", "TIMESTAMP");
     }
 
 

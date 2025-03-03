@@ -7,7 +7,7 @@
 
   <groupId>io.github.fanchenggang</groupId>
   <artifactId>curd-pojo-maven-plugin</artifactId>
-  <version>20250220.D</version>
+  <version>20250225.A</version>
 
   <name>curd-pojo-maven-plugin</name>
   <description>一款在Java应用开发过程中 当数据库字段新增后 同步更新POJO的maven插件</description>
