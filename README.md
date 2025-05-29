@@ -1,18 +1,22 @@
 # curd-pojo-maven-plugin
-一款在Java应用开发过程中 当数据库字段新增后 同步更新POJO的maven插件
 
- 功能
-1. 当数据库字段新增后通过对比同步更新到POJO并支持在字段上添加注解
+A Maven plugin that synchronously updates POJOs after new database fields are added during Java application development.
+> 一款在Java应用开发过程中 当数据库字段新增后 同步更新POJO的maven插件.
 
+### Features
 
-## 配置示例
+After new database fields are added, synchronously update to POJOs through comparison and support adding annotations to
+the fields
+> 当数据库字段新增后,通过比较同步更新POJO,支持给字段添加注解
+
+### demo
 ```xml
  <build>
         <plugins>
             <plugin>
                 <groupId>io.github.fanchenggang</groupId>
                 <artifactId>curd-pojo-maven-plugin</artifactId>
-                <version>20241031.A</version>
+                <version>20250225.A</version>
                 <configuration>
                      <dataSource>
                          <url>jdbc:mysql://127.0.0.1:3306/****?useUnicode=true&amp;characterEncoding=utf8&amp;zeroDateTimeBehavior=convertToNull&amp;useSSL=true&amp;serverTimezone=GMT%2B8</url>
@@ -21,7 +25,10 @@
                      </dataSource>
                     <schemas>
                         <schema>
-                            <name>test</name> <!-- 数据库名称-->
+                            <name>test</name> <!-- database name-->
+                            <tableInfo>
+                                <ignoreColumns>created_time,updated_time,deleted</ignoreColumns>
+                            </tableInfo>
                             <sources>
                                 <source>
                                     <path>src/main/java/com/ruoyi/perf/reassign/entity</path>
