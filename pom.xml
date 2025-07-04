@@ -7,7 +7,7 @@
 
   <groupId>io.github.fanchenggang</groupId>
   <artifactId>curd-pojo-maven-plugin</artifactId>
-  <version>20250704.A</version>
+  <version>20250704.B</version>
 
   <name>curd-pojo-maven-plugin</name>
   <description>一款在Java应用开发过程中 当数据库字段新增后 同步更新POJO的maven插件</description>
@@ -95,6 +95,39 @@
           <!--<autoPublish>true</autoPublish>-->
           <!-- 一直等到发布完成 -->
           <!--<waitUntil>published</waitUntil>-->
+        </configuration>
+      </plugin>
+      <!-- 生成源代码附件 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.0</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- 生成Javadoc附件（忽略文档警告） -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.4.1</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <additionalparam>-Xdoclint:none</additionalparam> <!-- 忽略文档格式警告 -->
+          <failOnError>false</failOnError> <!-- 允许非关键错误通过 -->
         </configuration>
       </plugin>
     </plugins>

@@ -30,10 +30,10 @@ class MainMojoTest {
         dataSource.setPassword("root");
         schemas = new ArrayList<>();
         Schema schema = new Schema();
-        schema.setName("");
+        schema.setName("demo");
 
         Source source1 = new Source();
-        source1.setPath("src/test/java/io/github/fancg/maven/*/vo");
+        source1.setPath("src/test/java/io/github/fancg/maven/**/vo");
         source1.setSubSuffix("Vo");
 
         Source source2 = new Source();
@@ -60,11 +60,25 @@ class MainMojoTest {
     @Test
     void getFiles() throws Exception {
         // 通配符模式（* 表示任意子目录名）
-        String path1 = "src/test/java/io/github/fancg/maven/*/vo";
+        // String path1 = "src/test/java/io/github/fancg/maven/*/vo";
         String path2 = "src/test/java/io/github/fancg/maven/**/vo";
-        String path3 = "src/test/java/io/github/fancg/maven/vo/*";
+        //   String path3 = "src/test/java/io/github/fancg/maven/vo/*";
         new FileParse(path2);
 
+    }
+
+    @Test
+    void testPathParse() throws Exception {
+        // 测试路径模式（包含 ** 递归匹配）
+        String path2 = "src/test/java/io/github/fancg/maven/**/vo";
+        PathParse fileParse = new PathParse(path2, "");
+
+        // 获取匹配的文件路径
+        List<String> matchedPaths = fileParse.getMatchedFiles();
+
+        // 断言：预期路径应被匹配到
+        assert matchedPaths.contains("src\\test\\java\\io\\github\\fancg\\maven\\dept\\role\\vo") : "未匹配到单层子目录 vo";
+        assert matchedPaths.contains("src\\test\\java\\io\\github\\fancg\\maven\\dept\\vo") : "未匹配到多层子目录 vo";
     }
 
 }

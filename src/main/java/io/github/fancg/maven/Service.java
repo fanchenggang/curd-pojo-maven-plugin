@@ -113,8 +113,12 @@ public class Service {
     public void sync(List<String> authors, List<String> ignoreColumns, Source source, List<Annotation> annotations) throws Exception {
         getLog().debug("ignoreColumns:" + ignoreColumns);
         //扫描path下的所有java对象
-        FileParse fileParse = new FileParse(source.getPath());
-        List<String> filePathList = fileParse.getFilePathList();
+        PathParse fileParse = new PathParse(source.getPath(), basedirPath);
+
+        // 获取匹配的文件路径
+        List<String> filePathList = fileParse.getMatchedFiles();
+        //  FileParse fileParse = new FileParse(source.getPath());
+        //List<String> filePathList = fileParse.getFilePathList();
         for (String path : filePathList) {
             File filePath = new File(basedirPath + "/" + path);
             File[] files = filePath.listFiles();
