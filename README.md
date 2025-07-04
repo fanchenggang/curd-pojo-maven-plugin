@@ -16,7 +16,7 @@ the fields
             <plugin>
                 <groupId>io.github.fanchenggang</groupId>
                 <artifactId>curd-pojo-maven-plugin</artifactId>
-                <version>20250225.A</version>
+                <version>last version</version>
                 <configuration>
                      <dataSource>
                          <url>jdbc:mysql://127.0.0.1:3306/****?useUnicode=true&amp;characterEncoding=utf8&amp;zeroDateTimeBehavior=convertToNull&amp;useSSL=true&amp;serverTimezone=GMT%2B8</url>
@@ -42,12 +42,12 @@ the fields
                                 <source>
                                     <path>src/main/java/com/ruoyi/perf/reassign/domain/vo</path>
                                     <subSuffix>VO</subSuffix>
-                                    <annotations>
-                                        <annotation>
-                                            <className>io.swagger.annotations.ApiModelProperty</className>
-                                        </annotation>
-                                    </annotations>
                                 </source>
+                                <!-- 支持*通配 任意一级
+                                 src/main/java/com/ruoyi/*/domain/vo
+                                 src/main/java/com/ruoyi/*/*/domain/vo
+                                 -->
+
                             </sources>
                         </schema>
                     </schemas>

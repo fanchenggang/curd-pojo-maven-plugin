@@ -28,6 +28,12 @@ public class MainMojo extends AbstractMojo {
     @Parameter( defaultValue = "${project.basedir}", readonly = true )
     private File basedir;
 
+    public void init(DataSource dataSource, List<Schema> schemas, File basedir) {
+        this.dataSource = dataSource;
+        this.schemas = schemas;
+        this.basedir = basedir;
+    }
+
 
     @Override
     public void execute() {
