@@ -8,17 +8,24 @@ import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.comments.Comment;
+import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.javadoc.Javadoc;
+import com.github.javaparser.javadoc.JavadocBlockTag;
 import com.github.javaparser.printer.PrettyPrinter;
 import com.github.javaparser.printer.configuration.PrettyPrinterConfiguration;
 import com.google.common.collect.Lists;
 import io.github.fancg.maven.entity.Annotation;
 import io.github.fancg.maven.entity.Schema;
 import io.github.fancg.maven.entity.Source;
+import io.github.fancg.maven.entity.TableInfo;
+import io.github.fancg.maven.util.DateUtils;
 import io.github.fancg.maven.util.StringUtils;
+import lombok.SneakyThrows;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.w3c.dom.Document;
@@ -37,10 +44,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * @author: cg
@@ -102,23 +106,25 @@ public class Service {
         for (Schema schema : schemas) {
             for (Source source : schema.getSources()) {
                 List<Annotation> annotations = source.getAnnotations();
-                sync(StringUtils.splitToList(schema.getTableInfo().getAuthors()),
-                        StringUtils.splitToList(schema.getTableInfo().getIgnoreColumns())
-                        , source, annotations);
+                sync(schema.getTableInfo(), source, annotations);
             }
         }
     }
 
 
-    public void sync(List<String> authors, List<String> ignoreColumns, Source source, List<Annotation> annotations) throws Exception {
-        getLog().debug("ignoreColumns:" + ignoreColumns);
+    public void sync(TableInfo tableInfo, Source source, List<Annotation> annotations) throws Exception {
+        getLog().debug("ignoreColumns:" + StringUtils.splitToList(tableInfo.getIgnoreColumns()));
         //扫描path下的所有java对象
         PathParse fileParse = new PathParse(source.getPath(), basedirPath);
-
         // 获取匹配的文件路径
         List<String> filePathList = fileParse.getMatchedFiles();
-        //  FileParse fileParse = new FileParse(source.getPath());
-        //List<String> filePathList = fileParse.getFilePathList();
+        List<String> xmlPathList = Lists.newArrayList();
+        if (!StringUtils.isBlank(source.getXmlPath())) {
+            PathParse xmlPathParse = new PathParse(source.getXmlPath(), basedirPath);
+            xmlPathList = xmlPathParse.getMatchedFiles();
+        }
+
+
         for (String path : filePathList) {
             File filePath = new File(basedirPath + "/" + path);
             File[] files = filePath.listFiles();
@@ -130,17 +136,23 @@ public class Service {
                 if (file.isDirectory()) {
                     continue;
                 }
-                sync(authors, ignoreColumns, source, file, annotations);
+                sync(tableInfo, source, file, annotations, xmlPathList);
             }
         }
     }
 
 
-    private void sync(List<String> authors, List<String> ignoreColumns, Source source, File file, List<Annotation> annotations) throws Exception {
+    private void sync(TableInfo tableInfo, Source source, File file, List<Annotation> annotations, List<String> xmlPathList) throws Exception {
+        List<String> ignoreColumns = StringUtils.splitToList(tableInfo.getIgnoreColumns());
         getLog().debug("Java source path:" + file.getAbsolutePath());
         ParseResult<CompilationUnit> parseResult = javaParser.parse(file);
         CompilationUnit compilationUnit = parseResult.getResult().get();
-        if (!isAuthors(authors, compilationUnit)) {
+        Optional<TypeDeclaration<?>> first = compilationUnit.getTypes().getFirst();
+        if (!first.isPresent()) {
+            getLog().debug("解析失败:" + file.getAbsolutePath());
+            return;
+        }
+        if (!isAuthors(tableInfo, compilationUnit)) {
             getLog().debug("跳过文件:" + file.getAbsolutePath());
             return;
         }
@@ -154,7 +166,7 @@ public class Service {
             fieldNameList.add(fieldName);
         }
         //获取类名
-        String name = compilationUnit.getType(0).getName().asString();
+        String name = first.get().getName().asString();
         //如果配置了后缀 VO DTO ... 要截取掉在匹配
         if (!StringUtils.isEmpty(source.getSubSuffix())) {
             name = name.substring(0, name.length() - source.getSubSuffix().length());
@@ -186,24 +198,64 @@ public class Service {
 
         modifyEntity(compilationUnit, addColumnInfoList, annotations);
         if (source.getXmlPath() != null && !"".equals(source.getXmlPath())) {
-            modifyXml(source.getXmlPath() + "/" + name + "Mapper.xml", addColumnInfoList);
+            for (String xmlPath : xmlPathList) {
+                if (xmlPath.endsWith(name + "Mapper.xml")) {
+                    modifyXml(source.getXmlPath() + "/" + name + "Mapper.xml", addColumnInfoList);
+                }
+            }
         }
     }
 
-    public boolean isAuthors(List<String> authors, CompilationUnit compilationUnit) {
+    @SneakyThrows
+    public boolean isAuthors(TableInfo tableInfo, CompilationUnit compilationUnit) {
+        List<String> authors = StringUtils.splitToList(tableInfo.getAuthors());
+        String since = tableInfo.getSince();
+        if (StringUtils.isEmpty(since)) {
+            since = tableInfo.getDate();
+        }
+
         //如果没有限定 返回true
-        if (authors.isEmpty()) {
+        if (authors.isEmpty() && StringUtils.isEmpty(since)) {
             return true;
         }
         ClassOrInterfaceDeclaration typeDeclaration = (ClassOrInterfaceDeclaration) compilationUnit.getTypes().get(0);
-        Optional<Comment> comment = typeDeclaration.getComment();
-        String content = comment.get().getContent();
-        for (String author : authors) {
-            if (content.contains("@author: " + author)) {
-                return true;
+        Optional<Comment> commentOpt = typeDeclaration.getComment();
+        if (!commentOpt.isPresent()) {
+            return false;
+        }
+        Comment comment = commentOpt.get();
+        if (!comment.isJavadocComment()) {
+            return false;
+        }
+
+        JavadocComment javadocComment = comment.asJavadocComment();
+        Javadoc parse = javadocComment.parse();
+        List<JavadocBlockTag> blockTags = parse.getBlockTags();
+
+        if (!authors.isEmpty()) {
+            for (JavadocBlockTag blockTag : blockTags) {
+                String tagName = blockTag.getTagName();
+                if (tagName.startsWith("author")) {
+                    if (!authors.contains(blockTag.getContent().toText())) {
+                        return false;
+                    }
+                }
             }
         }
-        return false;
+        if (!StringUtils.isEmpty(since)) {
+            Date sinceDate = DateUtils.parseDate(since);
+            for (JavadocBlockTag blockTag : blockTags) {
+                String tagName = blockTag.getTagName();
+                if (tagName.startsWith("since") || tagName.startsWith("date")) {
+                    String text = blockTag.getContent().toText();
+                    Date fileDate = DateUtils.parseDate(text);
+                    if (fileDate.before(sinceDate)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     public void modifyEntity(CompilationUnit compilationUnit, List<ColumnInfo> columnInfoList, List<Annotation> annotations) throws FileNotFoundException {

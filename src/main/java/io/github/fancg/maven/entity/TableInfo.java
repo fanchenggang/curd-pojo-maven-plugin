@@ -15,4 +15,12 @@ public class TableInfo {
     private String tableNames;
     private String ignoreColumns;
     private String authors;
+    /**
+     * 文件时间
+     */
+    private String since;
+    /**
+     * 文件时间
+     */
+    private String date;
 }
